@@ -14,13 +14,25 @@ class WordleCdkStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         my_lambda = _lambda.Function(
-            self, 'HelloHandler',
+            self, 'CreateUser',
             runtime=_lambda.Runtime.PYTHON_3_7,
             code=_lambda.Code.from_asset('lambda'),
-            handler='hello.handler',
+            handler='createUser.handler',
         )
 
-        apigw.LambdaRestApi(
-            self, 'CDKEndpoint',
-            handler=my_lambda,
+        api = apigw.RestApi(
+            self,
+            "CdkProjectAPI",
+            rest_api_name="CdkProject API",
+            description="API for CdkProject",
+            deploy_options={
+                "stage_name": "v1"
+            }
         )
+
+         # Create the `/users` resource
+        users_resource = api.root.add_resource("users")
+
+        # Add a POST method to the `/users` resource and connect it to the Lambda function
+        create_user_integration = apigw.LambdaIntegration(my_lambda)
+        users_resource.add_method("POST", create_user_integration)
