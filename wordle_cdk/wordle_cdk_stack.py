@@ -28,6 +28,15 @@ class WordleCdkStack(Stack):
             code=_lambda.Code.from_asset("lambda")
         )
 
+        # Create the Lambda function for deleting a game
+        delete_game_lambda = _lambda.Function(
+            self,
+            "DeleteGameLambda",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="deleteGame.handler",
+            code=_lambda.Code.from_asset("lambda")
+        )
+
         api = apigw.RestApi(
             self,
             "CdkProjectAPI",
@@ -52,3 +61,10 @@ class WordleCdkStack(Stack):
         # Add a POST method to the `/users/{user_id}/games` resource and connect it to the create game Lambda function
         create_game_integration = apigw.LambdaIntegration(create_game_lambda)
         users_games_resource.add_method("POST", create_game_integration)
+
+        # Create the `/users/{user_id}/games/{game_id}` resource
+        games_resource = users_games_resource.add_resource("{game_id}")
+
+        # Add a DELETE method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        delete_game_integration = apigw.LambdaIntegration(delete_game_lambda)
+        games_resource.add_method("DELETE", delete_game_integration)
