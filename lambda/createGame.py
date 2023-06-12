@@ -15,11 +15,31 @@ def _getItem(table, item_id_name, item_id):
         if "Item" in itemObject:
             return {"success":True, "response":itemObject["Item"]}
         else:
-            error_message = item_id_name+" with id: "+item_id+" not found"
+            error_message = item_id_name+" with id: "+str(item_id)+" not found"
             return {"success":False, "response": error_message, "response_code": 404}
     except Exception as e:
         print(e)
-        error_message = "Exception while getting "+item_id_name+": "+item_id+" from DynamoDB"
+        error_message = "Exception while getting "+item_id_name+": "+str(item_id)+" from DynamoDB"
+        return {"success": False, "response": error_message, "response_code": 500}
+
+def _getRandomItem(table, partition_key, partition_key_value):
+    try:
+        keyConditionExpression = partition_key+" = :partition_key_value"
+        response = table.query(
+            KeyConditionExpression=keyConditionExpression,
+            ExpressionAttributeValues={':partition_key_value': partition_key_value}
+        )
+        items = response['Items']
+        n = len(items)
+        if n == 0:
+            return {"success":False, "response": "No items found", "response_code": 404}
+        else:
+            random_int = uuid.uuid4().int
+            idx = random_int % n
+            return {"success":True, "response": items[idx]}
+    except Exception as e:
+        print(e)
+        error_message = "Exception while getting "+partition_key+": "+str(partition_key_value)+" from DynamoDB"
         return {"success": False, "response": error_message, "response_code": 500}
 
 def _putItem(table, item):
@@ -55,7 +75,8 @@ def handler(event, context):
         dynamodb = boto3.resource('dynamodb')
         userTable = dynamodb.Table(os.environ['USER_TABLE'])
         gameTable = dynamodb.Table(os.environ['GAME_TABLE'])
-        
+        wordTable = dynamodb.Table(os.environ['WORD_TABLE'])
+
         result = _getItem(userTable, "user_id", user_id)
         if not result["success"]:
             print("2")
@@ -63,7 +84,13 @@ def handler(event, context):
         userObject = result["response"]
         
         game_id = str(uuid.uuid4())
-        word="hello"
+        
+        result = _getRandomItem(wordTable, "word_length", int(word_length))
+        if not result["success"]:
+            return _http_response(result["response_code"], result["response"])
+        print(result)
+        word = result["response"]["word"]
+
         gameObject = {
             "game_id": game_id,
             "hard_mode": hard_mode,

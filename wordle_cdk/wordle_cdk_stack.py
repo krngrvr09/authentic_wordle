@@ -32,6 +32,16 @@ class WordleCdkStack(Stack):
             removal_policy=core.RemovalPolicy.DESTROY
         )
 
+        # Create the DynamoDB words table
+        wordTable = dynamodb.Table(
+            self,
+            "WordTable",
+            partition_key=dynamodb.Attribute(name="word_length", type=dynamodb.AttributeType.NUMBER),
+            sort_key=dynamodb.Attribute(name="word", type=dynamodb.AttributeType.STRING),
+            removal_policy=core.RemovalPolicy.DESTROY
+        )
+
+
         # Define a custom IAM policy for CloudWatch Logs access
         cloudwatch_policy = iam.PolicyStatement(
             actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
@@ -72,6 +82,7 @@ class WordleCdkStack(Stack):
             environment={
                 "USER_TABLE": userTable.table_name,
                 "GAME_TABLE": gameTable.table_name,
+                "WORD_TABLE": wordTable.table_name,
                 "REGION": self.region
             },
             role=lambda_role
@@ -108,6 +119,20 @@ class WordleCdkStack(Stack):
             role=lambda_role
         )
 
+        # Create the Lambda function for creating a game
+        populate_words_lambda = _lambda.Function(
+            self,
+            "PopulateWordsLambda",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="populateWords.handler",
+            code=_lambda.Code.from_asset("lambda"),
+            environment={
+                "WORD_TABLE": wordTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
+        )        
+
         # Create the Lambda function for getting a game
         api = apigw.RestApi(
             self,
@@ -119,6 +144,13 @@ class WordleCdkStack(Stack):
             },
             endpoint_types=[apigw.EndpointType.REGIONAL]
         )
+
+         # Create the `/words` resource
+        words_resource = api.root.add_resource("words")
+
+        # Add a POST method to the `/words` resource and connect it to the create populateWords Lambda function
+        populate_words_integration = apigw.LambdaIntegration(populate_words_lambda)
+        words_resource.add_method("POST", populate_words_integration)
 
          # Create the `/users` resource
         users_resource = api.root.add_resource("users")
