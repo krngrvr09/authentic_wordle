@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+from ast import literal_eval
 def serialize(word):
         sword = [None]*26
         for i in range(26):
@@ -12,7 +13,7 @@ def serialize(word):
             cidx+=1
         return sword
 
-def valid(wordTable, word, word_length):
+def valid(wordTable, word, word_length, hard_mode, guesses, responses):
         if len(word) != word_length:
             print("Invalid input length")
             return False
@@ -24,6 +25,13 @@ def valid(wordTable, word, word_length):
         
         if not reply["success"]:
             return False
+        if hard_mode=="1" and len(guesses)>0:
+            response = literal_eval(responses[-1])
+            guess = guesses[-1]
+            for idx in range(len(word)):
+                print(response[idx], " ", word[idx], " ", guess[idx])
+                if response[idx]=="GREEN" and word[idx]!=guess[idx]:
+                    return False
         return True
 
 def _http_response(response_code, response_message):
@@ -107,7 +115,7 @@ def handler(event, context):
 
         # validate guess
         word_length = int(game["word_length"])
-        if not valid(wordTable, guess, word_length):
+        if not valid(wordTable, guess, word_length, game["hard_mode"], game["guesses"], game["responses"]):
             return _http_response(400, "Not a valid guess")
         
         # check if game is over
