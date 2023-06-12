@@ -33,6 +33,7 @@ class WordleCdkStack(Stack):
         })
 
         api_stack = APIStack(self, 'APIStack', lambda_functions={
+            'get_home': lambda_stack.get_home_lambda,
             'create_user': lambda_stack.create_user_lambda,
             'create_game': lambda_stack.create_game_lambda,
             'get_game': lambda_stack.get_game_lambda,

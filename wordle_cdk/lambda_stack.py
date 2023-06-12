@@ -36,6 +36,20 @@ class LambdaStack(Stack):
         lambda_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonDynamoDBFullAccess"))
         lambda_role.add_to_policy(cloudwatch_policy)
 
+        # Create the Lambda function for getting home page    
+        get_home_lambda = _lambda.Function(
+            self, 'GetHome',
+            runtime=_lambda.Runtime.PYTHON_3_7,
+            code=_lambda.Code.from_asset('lambda'),
+            handler='getHome.handler',
+            environment={
+                "USER_TABLE": user_table_name,
+                "GAME_TABLE": game_table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
+        )
+
         # Create the Lambda function for creating a user    
         create_user_lambda = _lambda.Function(
             self, 'CreateUser',
@@ -142,6 +156,7 @@ class LambdaStack(Stack):
             timeout=core.Duration.seconds(30)
         )
 
+        self.get_home_lambda = get_home_lambda
         self.create_user_lambda = create_user_lambda
         self.create_game_lambda = create_game_lambda
         self.delete_game_lambda = delete_game_lambda

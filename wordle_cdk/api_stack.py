@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigw,
     aws_dynamodb as dynamodb,
+    aws_apigateway
 )
 
 
@@ -16,6 +17,7 @@ class APIStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, lambda_functions: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        get_home_lambda = lambda_functions['get_home']
         create_user_lambda = lambda_functions['create_user']
         create_game_lambda = lambda_functions['create_game']
         get_game_lambda = lambda_functions['get_game']
@@ -37,7 +39,12 @@ class APIStack(Stack):
             endpoint_types=[apigw.EndpointType.REGIONAL]
         )
 
-         # Create the `/words` resource
+
+        # Add a GET method to the `/` resource and connect it to the getHome Lambda function
+        get_home_integration = apigw.LambdaIntegration(get_home_lambda)
+        api.root.add_method("GET", get_home_integration)
+        
+        # Create the `/words` resource
         words_resource = api.root.add_resource("words")
 
         # Add a POST method to the `/words` resource and connect it to the create populateWords Lambda function
