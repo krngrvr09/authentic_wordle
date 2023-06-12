@@ -3,6 +3,31 @@ import boto3
 import uuid
 import os
 
+def _http_response(response_code, response_message):
+    return {
+                'statusCode': response_code,
+                'body': json.dumps({"message":response_message})
+            }
+
+def _putItem(table, item):
+    try:
+        try:
+            tmp = json.dumps(item)
+            print("putting item into table")
+            print(tmp)
+        except Exception as e:
+            return {"success": False, "response": "Error serializing json", "response_code": 500}
+        response = table.put_item(Item=item)
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            return {"success": True, "response": item}
+        else:
+            error_message = "Unable to create new game."
+            return {"success": False, "response": error_message, "response_code": 422}
+    except Exception as e:
+        print(e)
+        error_message = "An exception occured while creating a new game."
+        return {"success": False, "response": error_message, "response_code": 500}
+
 def handler(event, context):
         dynamodb = boto3.resource('dynamodb')
         userTable = dynamodb.Table(os.environ['USER_TABLE'])
@@ -11,27 +36,9 @@ def handler(event, context):
             "user_id": user_id,
             "game_id": ""
         }
-        try:
-            response = userTable.put_item(Item=new_item)
-            if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-                print('Item created successfully')
-                return {
-                'statusCode': 201,
-                'body': json.dumps({"status": "success","user_id":user_id})
-            }
-            else:
-                return {
-                    'statusCode': 409,
-                    'body': json.dumps({"error": "Unable to create new user."})
-                }
-                print('Failed to create item')
-        except Exception as e:
-            print(e)
-            return {
-                    'statusCode': 500,
-                    'body': json.dumps({"error": "An exception occured while creating a new user."})
-                }
-    # Add more attributes as needed
 
-    
+        reply = _putItem(userTable, new_item)
+        if not reply["success"]:
+            return _http_response(reply["response_code"],reply["response"])
+        return _http_response(201,reply["response"])
     
