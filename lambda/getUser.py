@@ -11,9 +11,6 @@ class ResponseStatus(Enum):
     INTERNAL_ERROR = 500
     NOT_FOUND = 404
     NOT_AUTHORISED = 403
-    INVALID_GUESS = 400
-    ATTEMPTS_EXCEEDED = 400
-    GAME_OVER = 400
 
 
 def _http_response(response_status, response_message):

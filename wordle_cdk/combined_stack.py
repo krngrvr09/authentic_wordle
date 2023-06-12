@@ -8,9 +8,9 @@ from aws_cdk import (
     aws_apigateway as apigw,
     aws_dynamodb as dynamodb,
 )
-from wordle_cdk.db_stack import DBStack
-from wordle_cdk.lambda_stack import LambdaStack
-from wordle_cdk.api_stack import APIStack
+from db_stack import DBStack
+from lambda_stack import LambdaStack
+from api_stack import APIStack
 
 class WordleCdkStack(Stack):
 
@@ -20,9 +20,9 @@ class WordleCdkStack(Stack):
         # Create the DynamoDB stack
         dynamodb_stack = DBStack(self, 'DynamoDBStack')
 
-        user_table_name = dynamodb_stack.user_table_name_output.value
-        game_table_name = dynamodb_stack.game_table_name_output.value
-        word_table_name = dynamodb_stack.word_table_name_output.value
+        user_table_name = dynamodb_stack.user_table.table_name
+        game_table_name = dynamodb_stack.game_table.table_name
+        word_table_name = dynamodb_stack.word_table.table_name
 
         
         # Create the Lambda stack
@@ -41,5 +41,3 @@ class WordleCdkStack(Stack):
             'guess': lambda_stack.guess_lambda,
             'populate_words': lambda_stack.populate_words_lambda
         })
-
-        

@@ -12,9 +12,7 @@ class ResponseStatus(Enum):
     INTERNAL_ERROR = 500
     NOT_FOUND = 404
     NOT_AUTHORISED = 403
-    INVALID_GUESS = 400
-    ATTEMPTS_EXCEEDED = 400
-    GAME_OVER = 400
+    
 
 
 def _http_response(response_status, response_message):
@@ -140,13 +138,13 @@ def handler(event, context):
     # check if game is over
     attempts_left = int(game["attempts_left"])
     if game["status"]!="IN_PROGRESS" or attempts_left<=0:
-        return _http_response(ResponseStatus.ATTEMPTS_EXCEEDED, game)
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, game)
 
     # validate guess
     word_length = int(game["word_length"])
     result = valid(wordTable, guess, word_length, game["hard_mode"], game["guesses"], game["responses"])
     if not result["success"]:
-        return _http_response(ResponseStatus.INVALID_GUESS, result["message"])
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, result["message"])
     
 
     guessResponse = getGuessResponse(guess, game["word"])

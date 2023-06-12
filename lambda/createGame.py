@@ -12,9 +12,6 @@ class ResponseStatus(Enum):
     INTERNAL_ERROR = 500
     NOT_FOUND = 404
     NOT_AUTHORISED = 403
-    INVALID_GUESS = 400
-    ATTEMPTS_EXCEEDED = 400
-    GAME_OVER = 400
 
 
 def _http_response(response_status, response_message):
@@ -92,8 +89,12 @@ def handler(event, context):
     
     user_id = pathParams["user_id"]
     word_length = queryParams["word_length"]
-    attempts_left = int(word_length)+1
     hard_mode = queryParams["hard_mode"]
+    if(int(word_length) < 5 or int(word_length) > 8):
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Word length must be between 5 and 8")
+    if(hard_mode != "1" and hard_mode != "0"):
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Hard mode must be 1 or 0")
+    attempts_left = int(word_length)+1
     dynamodb = boto3.resource('dynamodb')
     userTable = dynamodb.Table(os.environ['USER_TABLE'])
     gameTable = dynamodb.Table(os.environ['GAME_TABLE'])
