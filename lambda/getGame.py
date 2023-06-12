@@ -36,50 +36,14 @@ def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
             return {"success":True, "response":itemObject["Item"]}
         else:
             error_message = "{} with id: {} not found.".format(pk_name, str(pk_value))
-            return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+            return {"success":False, "response": error_message, "status": ResponseStatus.NOT_FOUND}
     except Exception as e:
         print(e)
         error_message = "Exception while getting {}: {} from dynamoDB".format(pk_name, str(pk_value))
         return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
 
 
-def _putItem(table, item):
-    try:
-        response = table.put_item(Item=item)
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            return {"success": True, "response": item}
-        else:
-            error_message = "Unable to delete game."
-            return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-    except Exception as e:
-        print(e)
-        error_message = "An exception occured while deleting game."
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-
-
-def _deleteItem(table, item_id_name, item_id):
-    try:
-        response = table.delete_item(
-                Key={
-                    item_id_name: item_id
-                }
-            )
-            # Check the response status
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            print('Item deleted successfully.')
-            return {"success": True, "response": "Item deleted successfully."}
-        else:
-            print('Error deleting item:', item_id)
-            return {"success": False, "response": "Error deleting item: {}".format(item_id), "status": ResponseStatus.INTERNAL_ERROR}
-            
-    except Exception as e:
-        print(e)
-        print("Exception deleting game from : "+item_id)
-        return {"success": False, "response": "Exception deleting game from : {}".format(item_id), "status": ResponseStatus.INTERNAL_ERROR}
-
-
 def handler(event, context):
-    
     if "pathParameters" not in event:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters")
     
@@ -102,14 +66,8 @@ def handler(event, context):
     if(user_game_id!=game_id):
         return _http_response(ResponseStatus.NOT_AUTHORISED, "This user is not allowed to access this game")
 
-    reply = _deleteItem(gameTable, "game_id", game_id)
-
-    if not reply["success"]:
-        return _http_response(reply["status"],reply["response"])
-
-    user["game_id"] = ""
-    reply = _putItem(userTable, user)
+    reply = _getItem(gameTable, "game_id", game_id)
     if not reply["success"]:
         return _http_response(reply["status"],reply["response"])
     
-    return _http_response(ResponseStatus.OK, "Game deleted successfully")
+    return _http_response(ResponseStatus.OK, reply["response"])

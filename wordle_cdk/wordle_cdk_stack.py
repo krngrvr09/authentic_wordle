@@ -103,7 +103,36 @@ class WordleCdkStack(Stack):
             role=lambda_role
         )
         
-
+        # Create the Lambda function for getting a game
+        get_game_lambda = _lambda.Function(
+            self,
+            "GetGameLambda",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="getGame.handler",
+            code=_lambda.Code.from_asset("lambda"),
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "GAME_TABLE": gameTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
+        )
+        
+        # Create the Lambda function for getting a user
+        get_user_lambda = _lambda.Function(
+            self,
+            "GetUserLambda",
+            runtime=_lambda.Runtime.PYTHON_3_8,
+            handler="getUser.handler",
+            code=_lambda.Code.from_asset("lambda"),
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "GAME_TABLE": gameTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
+        )
+        
         # Create the Lambda function for making a guess
         guess_lambda = _lambda.Function(
             self,
@@ -160,8 +189,15 @@ class WordleCdkStack(Stack):
         create_user_integration = apigw.LambdaIntegration(create_user_lambda)
         users_resource.add_method("POST", create_user_integration)
 
+        # Create the `/users/{user_id} resource
+        user_resource = users_resource.add_resource("{user_id}")
+
+        # Add a GET method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        get_user_integration = apigw.LambdaIntegration(get_user_lambda)
+        user_resource.add_method("GET", get_user_integration)
+
         # Create the `/users/{user_id}/games` resource
-        users_games_resource = users_resource.add_resource("{user_id}").add_resource("games")
+        users_games_resource = user_resource.add_resource("games")
 
         # Add a POST method to the `/users/{user_id}/games` resource and connect it to the create game Lambda function
         create_game_integration = apigw.LambdaIntegration(create_game_lambda)
@@ -173,6 +209,10 @@ class WordleCdkStack(Stack):
         # Add a DELETE method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
         delete_game_integration = apigw.LambdaIntegration(delete_game_lambda)
         games_resource.add_method("DELETE", delete_game_integration)
+
+        # Add a GET method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        get_game_integration = apigw.LambdaIntegration(get_game_lambda)
+        games_resource.add_method("GET", get_game_integration)
 
         # Create the `/users/{user_id}/games/{game_id}/guess` resource
         guess_resource = games_resource.add_resource("guess")
