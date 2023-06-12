@@ -114,6 +114,7 @@ class WordleCdkStack(Stack):
             environment={
                 "USER_TABLE": userTable.table_name,
                 "GAME_TABLE": gameTable.table_name,
+                "WORD_TABLE": wordTable.table_name,
                 "REGION": self.region
             },
             role=lambda_role

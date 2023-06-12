@@ -47,17 +47,23 @@ def _http_response(response_code, response_message):
                 'body': json.dumps({"message":response_message})
             }
 
-def _getItem(table, item_id_name, item_id):
+def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
+    key = {
+        pk_name: pk_value,
+    }
+    if sk_name is not None:
+        key[sk_name] = sk_value
+    print("key: "+str(key))
     try:
-        itemObject = table.get_item(Key={item_id_name: item_id})
+        itemObject = table.get_item(Key=key)
         if "Item" in itemObject:
             return {"success":True, "response":itemObject["Item"]}
         else:
-            error_message = item_id_name+" with id: "+item_id+" not found"
+            error_message = pk_name+" with id: "+str(pk_value)+" not found"
             return {"success":False, "response": error_message, "response_code": 404}
     except Exception as e:
         print(e)
-        error_message = "Exception while getting "+item_id_name+": "+item_id+" from DynamoDB"
+        error_message = "Exception while getting "+pk_name+": "+str(pk_value)+" from DynamoDB"
         return {"success": False, "response": error_message, "response_code": 500}
 
 def _putItem(table, item):
@@ -87,13 +93,15 @@ def handler(event, context):
         dynamoClient = boto3.resource("dynamodb")
         userTable = dynamoClient.Table(os.environ['USER_TABLE'])
         gameTable = dynamoClient.Table(os.environ['GAME_TABLE'])
-        
+        wordTable = dynamoClient.Table(os.environ['WORD_TABLE'])
+
         user_id = event["pathParameters"]["user_id"]
         game_id = event["pathParameters"]["game_id"]
         # check mapping between game id and user id
         reply = _getItem(userTable, "user_id", user_id)
         if not reply["success"]:
             return _http_response(reply["response_code"],reply["response"])
+        
         user = reply["response"]
         user_game_id = user["game_id"]
         if(user_game_id!=game_id):
@@ -105,11 +113,16 @@ def handler(event, context):
             return _http_response(reply["response_code"],reply["response"])
         gameObject = reply["response"]
 
+        word_length = int(gameObject["word_length"])
+        reply = _getItem(wordTable, "word_length", int(word_length), "word", guess)
+        
+        if not reply["success"]:
+            return _http_response(reply["response_code"],reply["response"])
+        
         attempts_left = int(gameObject["attempts_left"])
         if(attempts_left<=0):
             return _http_response(200, gameObject)
 
-        word_length = int(gameObject["word_length"])
         if not valid(guess, word_length):
             return _http_response(400, "Not a valid guess")
 
