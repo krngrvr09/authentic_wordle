@@ -1,0 +1,193 @@
+decisions
+- single user table that has game information or usertable and usergame table.
+    - single user will always be mapped to one key in usergame table.
+    - if we use 2 tables, then we have separate concerns.
+    - if we use 2 table, for each guess we have to do 2 calls to db.
+    - One table is fine, as the amount of data is not a lot. we save 1 call to db. A user will always be playing one game at a time.
+
+- pattern - read modify write.
+    - a user will always read-modify-write their own data so there is no concurrency issues. User can potentially access through 2 different devices, but if they do it at the same time. They can possibly get an extra chance due to a lost update. Since our writes for attempts left is idempotent, we cannot get -ve attempts left. We should check for that though. Think about stale reads when a user sends updates very quickly, what can happen?
+
+- where to store guesses
+    - can be stored in the frontend or in the backend.
+    - can be stored in browser cache, and it will only be removed when cache is cleared. Limited data.
+    - can be stored in db, and will be available if the brower cache is cleared.
+    - with storing in broswer, when there is no internet, the js can only update local cache with the response from the server.
+    - We can possibly store in db for the sake of completeness, since we dont have a frontend right now.
+
+- should we enable CORS?
+
+- If game id is globally unique, do you need to pass user id everytime?
+    - Yes, because we should authorize the mapping.
+
+- one function for each crud operation or multiple functions.
+
+- is it okay to modify the user table in POST request for new game?
+
+- is it okay to delete another game in post request for new game?
+
+- even though guess updates state of the game, we're not doing PUT because PUT is supposed to be idempotent.
+
+- why dont you have a guess resource
+    - makes it complicated.
+    - guess is part of the same game and is never accessed by ID.
+
+- Writing words deterministically/idempotentally to DB, so that in case of crashes, we dont get duplicate words. That changes the probability of assigned words.
+
+
+user table
+    - user_id ->  partition key.
+    - wordIndexes -> map of indexes to word. If we decide to reduce or add the number of lengths supported, we can roll out a new version of the API. No need to modify this map as requests wont come to db. If we reduce and then expand, some users will start from the same index where they left off and that's okay. We'll have a mod operator to loop over. Dynamodb integers are 126bit and python ints can also handle very large number. More than enough that it will not overflow.
+    - game_status -> in_progress, won, lost
+    - attempts_left
+    - word_length
+    - word
+    - status
+    - hardMode
+    - guessed_words - [words]
+    - guessed_responses - [responses]
+
+word table options
+    - one word table with partition key being word length
+        - no sort key, because of sort key is word, we will get predictable words.
+        - scan over the table and iterate.
+        - or keep a metadata table to carefully search for indexes, but this makes it complicated.
+        - To evolve the game and support less number of lengths, roll out a new version of the API. Once we know this partition is not getting any reads, do batch deletes on this partition.
+        - Simple backend code. Just call one table with the word length.
+    - multiple word tables for different length
+        - no good way to partition the table.
+        - partition key can be length, but all values will be in the same partition.
+        - Just delete the table when you need to remove support for a length.
+        - complex backend code. Need to call different tables for different word length.
+    - We search this table in 2 ways: getting a word and checking if the word exists.
+        - to make both queries efficient we can store length, incrementing id, and word. with pk=length, sk=id and a local index with sk=word. We would have to store some metadata about how many words we have in each partition though. If we return a random word, then we can remove the moving part which is current index from the user. The words will be non-predictable, lower cost, lower complexity.
+
+Most common access patterns
+- guess a word.
+    - lookup user.
+    - update user object.
+- start a new game.
+- create user.
+- stats are not supported right now.
+- at every guess, I have to check the word table to see if the word exists.
+    - during every game creation I have to get a new word.
+...
+without completing if I say start a new game, what should it do?
+    - check the status of last game.
+        if no last game, return new game.
+        if last game status completed, return new game.
+        if last game status in progress, return last game.
+GET /
+    if cookie not present:
+        set cookie for a new user, and return that.
+        ask user for wordlength and start a new game(post /newGame).
+    else:
+        if game in progress:
+            previous guess results are stored in the browser.
+            attempts left are stored in the DB.
+            game is rebuilt using stored progress.
+            user is prompted to continue.
+        else:
+            ask user for word length and start a new game(post /newGame)
+
+POST /newGame
+    - data
+        - userid from cookie
+        - word length from input.
+    - check game status
+        - if in progress, return redirect to getGame
+    input sanitization
+    retrieve word from DB
+        - if it fails here and restarts, we just get another random word.
+    set attempts left as len+1
+        - if it fails here and restarts, this is idempotent and that's fine
+    set word length
+        - idenmpotent
+    set word
+        - idempotent
+    set game status as in progress
+        - idempotent, but we check for this in the restart.
+    redirect to getGame.
+
+GET /getGame
+    -data
+        - userid from cookie
+    - response
+        - word length
+        - guessed words
+        - guessed responses
+        - game status
+    - frontend will populate guessed words with colours in appropriate length boxes.
+    - if game status is won/lost/in progress, it will show appropriate page.
+
+PUT /guess
+    -data
+        - userid from cookie
+        - word from input
+    - return code, return status, data
+    - if attempts left==0
+        - return error code
+    - input sanitization on word, length check
+    - if word is not in dictionary
+        -return error.
+    - create a guess response.
+    - write the following to db
+        - guessed word, guessed response, attempts left, game status
+    - return wordlength, the list of guessed words and responses, game status.
+
+2 different tables - Users and Game
+
+/ GET
+- takes optional user_id as argument.
+- returns empty if user id not present
+    - /users POST
+- return user object url if user is present.
+
+/users POST
+- data is new user_id
+- response is user object url
+
+Single table called Game Session
+
+/ GET
+- just home page, no sessions.
+
+# client will check whether there is a session_id in the cookie
+# if not, it will call post.
+# if yes, it will call get.
+/sessions GET
+- takes required session_id as argument.
+- if session_id not in DB, return some message.
+    - do we need to do input validation here?
+- return session object url if session is present.
+    - show updated game UI on the screen.
+
+/sessions POST
+- data is empty
+- response is session object url - with new session_id
+    - show updated game UI on the screen.
+
+# need to put some sort of throttling or DDoS attack preventor.
+# we cannot do a PUT for a guess, because it is not idempotent.
+/sessions/ PUT
+- if this is a new game
+    - data
+        - word length
+        - isHardMode
+        - newGame=true
+        - session_id
+    - response is success/fail
+
+POST /sessions/{session_id}/guess
+
+
+"""
+todo:
+- game status should be integer or string?
+    - 0 is in progress, 1 is won, 2 is lost.
+- do we store guessed words?
+    - storing would help with debugging
+- is 409 response common?
+"""
+
+
