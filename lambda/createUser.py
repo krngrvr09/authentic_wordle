@@ -1,10 +1,11 @@
 import json
 import boto3
 import uuid
+import os
 
 def handler(event, context):
         dynamodb = boto3.resource('dynamodb')
-        userTable = dynamodb.Table('user')
+        userTable = dynamodb.Table(os.environ['USER_TABLE'])
         user_id = str(uuid.uuid4())
         new_item = {
             "user_id": user_id,
