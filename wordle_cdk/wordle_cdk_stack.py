@@ -1,4 +1,5 @@
 from constructs import Construct
+import aws_cdk as core
 from aws_cdk import (
     Duration,
     Stack,
@@ -8,7 +9,6 @@ from aws_cdk import (
     aws_dynamodb as dynamodb,
 )
 
-# from aws_cdk import core
 
 
 class WordleCdkStack(Stack):
@@ -16,35 +16,51 @@ class WordleCdkStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # # Create the DynamoDB game table
-        # gameTable = dynamodb.Table(
-        #     self,
-        #     "GameTable",
-        #     partition_key=dynamodb.Attribute(name="game_id", type=dynamodb.AttributeType.STRING),
-        #     removal_policy=core.RemovalPolicy.DESTROY
-        # )
+        # Create the DynamoDB game table
+        gameTable = dynamodb.Table(
+            self,
+            "GameTable",
+            partition_key=dynamodb.Attribute(name="game_id", type=dynamodb.AttributeType.STRING),
+            removal_policy=core.RemovalPolicy.DESTROY
+        )
 
-        # # Create the DynamoDB user table
-        # userTable = dynamodb.Table(
-        #     self,
-        #     "UserTable",
-        #     partition_key=dynamodb.Attribute(name="user_id", type=dynamodb.AttributeType.STRING),
-        #     removal_policy=core.RemovalPolicy.DESTROY
-        # )
+        # Create the DynamoDB user table
+        userTable = dynamodb.Table(
+            self,
+            "UserTable",
+            partition_key=dynamodb.Attribute(name="user_id", type=dynamodb.AttributeType.STRING),
+            removal_policy=core.RemovalPolicy.DESTROY
+        )
 
+        # Define a custom IAM policy for CloudWatch Logs access
+        cloudwatch_policy = iam.PolicyStatement(
+            actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+            resources=["arn:aws:logs:*:*:*"]
+        )
 
+        lambda_role = iam.Role(
+            self,
+            "CDKLambdaRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            role_name="CDKLambdaRole"
+        )
+
+        lambda_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonDynamoDBFullAccess"))
+        lambda_role.add_to_policy(cloudwatch_policy)
+
+        # Create the Lambda function for creating a user    
         create_user_lambda = _lambda.Function(
             self, 'CreateUser',
             runtime=_lambda.Runtime.PYTHON_3_7,
             code=_lambda.Code.from_asset('lambda'),
             handler='createUser.handler',
-            # environment={
-            #     "USER_TABLE": userTable.table_name,
-            #     "AWS_REGION": self.region
-            # }
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
         )
-
-        # userTable.grant_full_access(create_user_lambda)
+        
 
         # Create the Lambda function for creating a game
         create_game_lambda = _lambda.Function(
@@ -53,16 +69,13 @@ class WordleCdkStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_8,
             handler="createGame.handler",
             code=_lambda.Code.from_asset("lambda"),
-            # environment={
-            #     "USER_TABLE": userTable.table_name,
-            #     "GAME_TABLE": gameTable.table_name,
-            #     "AWS_REGION": self.region
-            # }
-        )
-
-        # userTable.grant_full_access(create_game_lambda)
-        # gameTable.grant_full_access(create_game_lambda)
-        
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "GAME_TABLE": gameTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
+        )        
 
         # Create the Lambda function for deleting a game
         delete_game_lambda = _lambda.Function(
@@ -71,15 +84,13 @@ class WordleCdkStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_8,
             handler="deleteGame.handler",
             code=_lambda.Code.from_asset("lambda"),
-            # environment={
-            #     "USER_TABLE": userTable.table_name,
-            #     "GAME_TABLE": gameTable.table_name,
-            #     "AWS_REGION": self.region
-            # }
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "GAME_TABLE": gameTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
         )
-
-        # userTable.grant_full_access(delete_game_lambda)
-        # gameTable.grant_full_access(delete_game_lambda)
         
 
         # Create the Lambda function for making a guess
@@ -89,16 +100,15 @@ class WordleCdkStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_8,
             handler="guess.handler",
             code=_lambda.Code.from_asset("lambda"),
-            # environment={
-            #     "USER_TABLE": userTable.table_name,
-            #     "GAME_TABLE": gameTable.table_name,
-            #     "AWS_REGION": self.region
-            # }
+            environment={
+                "USER_TABLE": userTable.table_name,
+                "GAME_TABLE": gameTable.table_name,
+                "REGION": self.region
+            },
+            role=lambda_role
         )
 
-        # userTable.grant_full_access(guess_lambda)
-        # gameTable.grant_full_access(guess_lambda)
-
+        # Create the Lambda function for getting a game
         api = apigw.RestApi(
             self,
             "CdkProjectAPI",
