@@ -1,13 +1,5 @@
 from constructs import Construct
-import aws_cdk as core
-from aws_cdk import (
-    Duration,
-    Stack,
-    aws_iam as iam,
-    aws_lambda as _lambda,
-    aws_apigateway as apigw,
-    aws_dynamodb as dynamodb,
-)
+from aws_cdk import Stack
 from wordle_cdk.db_stack import DBStack
 from wordle_cdk.lambda_stack import LambdaStack
 from wordle_cdk.api_stack import APIStack

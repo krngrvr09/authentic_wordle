@@ -1,15 +1,8 @@
 from constructs import Construct
-import aws_cdk as core
 from aws_cdk import (
-    Duration,
     Stack,
-    aws_iam as iam,
-    aws_lambda as _lambda,
     aws_apigateway as apigw,
-    aws_dynamodb as dynamodb,
-    aws_apigateway
 )
-
 
 
 class APIStack(Stack):
@@ -17,6 +10,7 @@ class APIStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, lambda_functions: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Get the Lambda functions from the LambdaStack
         get_home_lambda = lambda_functions['get_home']
         create_user_lambda = lambda_functions['create_user']
         create_game_lambda = lambda_functions['create_game']
@@ -27,7 +21,7 @@ class APIStack(Stack):
         populate_words_lambda = lambda_functions['populate_words']
 
 
-        # Create the Lambda function for getting a game
+        # Create the API Gateway
         api = apigw.RestApi(
             self,
             "CdkProjectAPI",
@@ -54,32 +48,32 @@ class APIStack(Stack):
          # Create the `/users` resource
         users_resource = api.root.add_resource("users")
 
-        # Add a POST method to the `/users` resource and connect it to the create user Lambda function
+        # Add a POST method to the `/users` resource and connect it to the createUser Lambda function
         create_user_integration = apigw.LambdaIntegration(create_user_lambda)
         users_resource.add_method("POST", create_user_integration)
 
         # Create the `/users/{user_id} resource
         user_resource = users_resource.add_resource("{user_id}")
 
-        # Add a GET method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        # Add a GET method to the `/users/{user_id}` resource and connect it to the getUser Lambda function
         get_user_integration = apigw.LambdaIntegration(get_user_lambda)
         user_resource.add_method("GET", get_user_integration)
 
         # Create the `/users/{user_id}/games` resource
         users_games_resource = user_resource.add_resource("games")
 
-        # Add a POST method to the `/users/{user_id}/games` resource and connect it to the create game Lambda function
+        # Add a POST method to the `/users/{user_id}/games` resource and connect it to the createGame Lambda function
         create_game_integration = apigw.LambdaIntegration(create_game_lambda)
         users_games_resource.add_method("POST", create_game_integration)
 
         # Create the `/users/{user_id}/games/{game_id}` resource
         games_resource = users_games_resource.add_resource("{game_id}")
 
-        # Add a DELETE method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        # Add a DELETE method to the `/users/{user_id}/games/{game_id}` resource and connect it to the deleteGame Lambda function
         delete_game_integration = apigw.LambdaIntegration(delete_game_lambda)
         games_resource.add_method("DELETE", delete_game_integration)
 
-        # Add a GET method to the `/users/{user_id}/games/{game_id}` resource and connect it to the delete game Lambda function
+        # Add a GET method to the `/users/{user_id}/games/{game_id}` resource and connect it to the getGame Lambda function
         get_game_integration = apigw.LambdaIntegration(get_game_lambda)
         games_resource.add_method("GET", get_game_integration)
 

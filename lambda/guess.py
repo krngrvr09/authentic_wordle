@@ -4,7 +4,7 @@ import os
 from ast import literal_eval
 from enum import Enum
 
-
+# HTTP response status codes
 class ResponseStatus(Enum):
     OK = 200
     CREATED = 201
@@ -12,49 +12,80 @@ class ResponseStatus(Enum):
     INTERNAL_ERROR = 500
     NOT_FOUND = 404
     NOT_AUTHORISED = 403
-    
 
 
 def _http_response(response_status, response_message):
+    """
+    Builds a HTTP response object using the response status and message provided.
+
+    Args:
+        response_status (ResponseStatus): The HTTP response status code
+        response_message (str): The message to be returned in the HTTP response body
+    
+    Returns:
+        dict: The HTTP response object
+    """
     return {
                 'statusCode': response_status.value,
                 'body': json.dumps({"message":response_message, "status": response_status.name})
             }
 
 
-def serialize(word):
-        sword = [None]*26
-        for i in range(26):
-            sword[i] = []
-        cidx=0
-        for c in word:
-            idx = ord(c) - ord('a')
-            sword[idx].append(cidx)
-            cidx+=1
-        return sword
-
-
 def valid(wordTable, word, word_length, hard_mode, guesses, responses):
-        if len(word) != word_length:
-            return {"success": False, "message": "Invalid input length"}
-        for c in word:
-            if not c.isalpha():
-                return {"success": False, "message": "Invalid input character"}
-        reply = _getItem(wordTable, "word_length", int(word_length), "word", word)
-        
-        if not reply["success"]:
-            return {"success": False, "message": "Word not found in Wordle Dictionary"}
-        if hard_mode=="1" and len(guesses)>0:
-            response = literal_eval(responses[-1])
-            guess = guesses[-1]
-            for idx in range(len(word)):
-                print(response[idx], " ", word[idx], " ", guess[idx])
-                if response[idx]=="GREEN" and word[idx]!=guess[idx]:
-                    return {"success":False, "message": "Correct letters not included in the guess under hard mode."}
-        return {"success": True}
+    """
+    Verifies that the following properties are true:
+    1. Word is of the right length
+    2. Word contains only alphabets
+    3. Word is present in the Wordle Dictionary
+    4. If hard mode is enabled, the guess contains all the correct letters in the right position from the previous guess
+
+    Args:
+        wordTable (DynamoDB.Table): The DynamoDB table object
+        word (str): The guess word to be validated
+        word_length (int): The length of the word
+        hard_mode (str): The hard mode flag
+        guesses (list): The list of guesses made so far. eg. ["quest", "hello"]
+        responses (list): The list of responses for the guesses made so far. eg. ["['GREEN', 'GREY', 'GREEN', 'YELLOW', 'GREEN']", "['GREY', 'GREY', 'GREY', 'YELLOW', 'GREEN']"]
+    
+    Returns:
+        dict: A dictionary object containing a success flag and a message
+    """
+    if len(word) != word_length:
+        return {"success": False, "message": "Invalid input length"}
+    
+    for c in word:
+        if not c.isalpha():
+            return {"success": False, "message": "Invalid input character"}
+    
+    reply = _getItem(wordTable, "word_length", int(word_length), "word", word)
+    if not reply["success"]:
+        return {"success": False, "message": "Word not found in Wordle Dictionary"}
+    
+    if hard_mode=="1" and len(guesses)>0:
+        response = literal_eval(responses[-1]) # Convert string to list
+        guess = guesses[-1]
+        for idx in range(len(word)):
+            print(response[idx], " ", word[idx], " ", guess[idx])
+            if response[idx]=="GREEN" and word[idx]!=guess[idx]:
+                return {"success":False, "message": "Correct letters not included in the guess under hard mode."}
+    
+    return {"success": True}
 
 
 def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
+    """
+    Retrieves an item from the provided table using the provided primary key and sort key (if provided).
+
+    Args:
+        table (DynamoDB.Table): The DynamoDB table object
+        pk_name (str): The name of the primary key
+        pk_value (str/int): The value of the primary key
+        sk_name (str, optional): The name of the sort key. Defaults to None.
+        sk_value (str/int, optional): The value of the sort key. Defaults to None.
+    
+    Returns:
+        dict: The item retrieved from the table as a dictionary object if successful, otherwise a dictionary object containing an error message and status code
+    """
     key = {
         pk_name: pk_value,
     }
@@ -66,29 +97,50 @@ def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
         if "Item" in itemObject:
             return {"success":True, "response":itemObject["Item"]}
         else:
-            error_message = "{} with id: {} not found".format(pk_name, pk_value)
+            error_message = "{} with id: {} not found in {}".format(pk_name, str(pk_value), table.table_name)
             return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
     except Exception as e:
         print(e)
-        error_message = "Exception while getting {}: {} from dynamoDB".format(pk_name, pk_value)
+        error_message = "Exception while getting {}: {} from {}".format(pk_name, str(pk_value), table.table_name)
         return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
 
 
 def _putItem(table, item):
+    """
+    Inserts a new item into the provided table.
+
+    Args:
+        table (DynamoDB.Table): The DynamoDB table object
+        item (dict): The item to be inserted into the table
+    
+    Returns:
+        dict: A dictionary object of the item inserted into the table if successful, otherwise a dictionary object containing an error message and status code
+    """
     try:
         response = table.put_item(Item=item)
         if response['ResponseMetadata']['HTTPStatusCode'] == 200:
             return {"success": True, "response": item}
         else:
-            error_message = "Unable to create update game with the guess."
+            error_message = "Unable to write item to {}".format(table.table_name)
             return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
     except Exception as e:
         print(e)
-        error_message = "An exception occured while updating game with the guess."
+        error_message = "An exception occured while writing item to {}".format(table.table_name)
         return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
 
 
 def getGuessResponse(guess, target):
+        """
+        Converts a guess into a response based on the target word.
+        eg. guess = "chime", target = "chirp" => response = ["GREEN", "GREEN", "GREEN", "GREY", "GREY"]
+
+        Args:
+            guess (str): The guess word
+            target (str): The target word
+        
+        Returns:
+            list: Response as a list of colours(str)
+        """
         res=[]
         idx=0
         for c in guess:
@@ -104,6 +156,7 @@ def getGuessResponse(guess, target):
 
 def handler(event, context):
     
+    # Validate the request and request parameters
     if "pathParameters" not in event or "queryStringParameters" not in event:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters")
 
@@ -146,7 +199,7 @@ def handler(event, context):
     if not result["success"]:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, result["message"])
     
-
+    # Get a response for the guess and update the game
     guessResponse = getGuessResponse(guess, game["word"])
     attempts_left -= 1
     if guessResponse == ["GREEN" for c in game["word"]]:
@@ -156,7 +209,11 @@ def handler(event, context):
     game["guesses"].append(guess)
     game["responses"].append(str(guessResponse))
     game["attempts_left"]=str(attempts_left)
+    
+    # Write the updated game to the database
     reply = _putItem(gameTable, game)
     if not reply["success"]:
         return _http_response(reply["status"], reply["response"])
+    
+    # Return the updated game
     return _http_response(ResponseStatus.CREATED, reply["response"])
