@@ -32,12 +32,15 @@ def handler(event, context):
     wordTable = dynamodb.Table(os.environ['WORD_TABLE'])
 
     # batch write the words into the table
-    with wordTable.batch_writer() as batch:
-        for word in words:
-            batch.put_item(Item={
-                "word_length": len(word),
-                "word": word.lower(),
-            })
-
+    try:
+        with wordTable.batch_writer() as batch:
+            for word in words:
+                batch.put_item(Item={
+                    "word_length": len(word),
+                    "word": word.lower(),
+                })
+    except Exception as e:
+        print(e)
+        return _http_response(ResponseStatus.INTERNAL_ERROR, "Failed to populate words table")
     # return a success message
     return _http_response(ResponseStatus.CREATED, "Successfully populated words table")
