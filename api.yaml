@@ -2,6 +2,23 @@ info:
   title: Wordle API
   version: 1.0.0
 paths:
+  /:
+    get:
+      summary: Get homepage or redirect to game
+      parameters:
+      responses:
+        '200':
+          description: homepage returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '302':
+          description: Redirect to game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
   /users/:
     post:
       summary: Create a new user
