@@ -19,6 +19,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Response'
+  /words:
+    post:
+      summary: Put random words into DynamoDB
+      parameters:
+      responses:
+        '201':
+          description: words inserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '500':
+          description: couldnt insert words in DB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /users/:
     post:
       summary: Create a new user
