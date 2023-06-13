@@ -12,21 +12,25 @@ class ResponseStatus(enum.Enum):
     INTERNAL_ERROR = 500
 
 
-def _http_response(response_status, response_message):
+def _http_response(response_status, response_message, headers=None):
     """
     Builds a HTTP response object using the response status and message provided.
 
     Args:
         response_status (ResponseStatus): The HTTP response status code
         response_message (str): The message to be returned in the HTTP response body
+        headers (dict, optional): The HTTP response headers. Defaults to None.
     
     Returns:
         dict: The HTTP response object
     """
-    return {
+    response_object = {
                 'statusCode': response_status.value,
                 'body': json.dumps({"message":response_message, "status": response_status.name})
             }
+    if headers is not None:
+        response_object["headers"] = headers
+    return response_object
 
 
 def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):

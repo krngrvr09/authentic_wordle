@@ -42,6 +42,12 @@ def handler(event, context):
         return _http_response(result["status"], result["response"])
     userObject = result["response"]
     
+    # Check if user already has an active game
+    result = _getItem(gameTable, "game_id", userObject["game_id"])
+    if result["success"] and result["response"]["status"] == "IN_PROGRESS":
+        return _http_response(ResponseStatus.NOT_AUTHORISED, "User already has an active game, cannot create a new game")
+
+
     # Generate game id
     game_id = str(uuid.uuid4())
     

@@ -44,16 +44,7 @@ def handler(event, context):
     redirect_path = "/v1/users/{}/games/{}".format(user_id, game_id)
     redirect_url = urljoin(request_path, redirect_path)
     
-    #TODO: CHeck if this works, if so add it to _http wrapper
     headers = {
-        # 'Access-Control-Allow-Origin': '*',  # Replace * with the appropriate origin
-        # 'Access-Control-Allow-Headers': 'Content-Type',
-        # 'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',  # Adjust the allowed methods as needed
         'Location': redirect_url,
     }
-    response = {
-        'statusCode': 302,
-        'headers': headers,
-        'body': 'test',
-    }
-    return response
+    return _http_response(ResponseStatus.TEMPORARY_REDIRECT, "Redirecting to the game.", headers)
