@@ -2,57 +2,7 @@ import json
 import boto3
 import uuid
 import os
-from enum import Enum
-
-# HTTP response status codes
-class ResponseStatus(Enum):
-    OK = 200
-    CREATED = 201
-    MALFORMED_REQUEST = 400
-    INTERNAL_ERROR = 500
-    NOT_FOUND = 404
-    NOT_AUTHORISED = 403
-
-
-def _http_response(response_status, response_message):
-    """
-    Builds a HTTP response object using the response status and message provided.
-
-    Args:
-        response_status (ResponseStatus): The HTTP response status code
-        response_message (str): The message to be returned in the HTTP response body
-    
-    Returns:
-        dict: The HTTP response object
-    """
-    return {
-                'statusCode': response_status.value,
-                'body': json.dumps({"message":response_message, "status": response_status.name})
-            }
-
-
-def _putItem(table, item):
-    """
-    Inserts a new item into the provided table.
-
-    Args:
-        table (DynamoDB.Table): The DynamoDB table object
-        item (dict): The item to be inserted into the table
-    
-    Returns:
-        dict: A dictionary object of the item inserted into the table if successful, otherwise a dictionary object containing an error message and status code
-    """
-    try:
-        response = table.put_item(Item=item)
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            return {"success": True, "response": item}
-        else:
-            error_message = "Unable to write item to {}".format(table.table_name)
-            return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-    except Exception as e:
-        print(e)
-        error_message = "An exception occured while writing item to {}".format(table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+from wordle_utils import _http_response, _putItem, ResponseStatus
 
 
 def handler(event, context):

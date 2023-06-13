@@ -3,32 +3,7 @@ import boto3
 import os
 from ast import literal_eval
 from enum import Enum
-
-# HTTP response status codes
-class ResponseStatus(Enum):
-    OK = 200
-    CREATED = 201
-    MALFORMED_REQUEST = 400
-    INTERNAL_ERROR = 500
-    NOT_FOUND = 404
-    NOT_AUTHORISED = 403
-
-
-def _http_response(response_status, response_message):
-    """
-    Builds a HTTP response object using the response status and message provided.
-
-    Args:
-        response_status (ResponseStatus): The HTTP response status code
-        response_message (str): The message to be returned in the HTTP response body
-    
-    Returns:
-        dict: The HTTP response object
-    """
-    return {
-                'statusCode': response_status.value,
-                'body': json.dumps({"message":response_message, "status": response_status.name})
-            }
+from wordle_utils import _http_response, _getItem, _putItem, ResponseStatus
 
 
 def valid(wordTable, word, word_length, hard_mode, guesses, responses):
@@ -70,63 +45,6 @@ def valid(wordTable, word, word_length, hard_mode, guesses, responses):
                 return {"success":False, "message": "Correct letters not included in the guess under hard mode."}
     
     return {"success": True}
-
-
-def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
-    """
-    Retrieves an item from the provided table using the provided primary key and sort key (if provided).
-
-    Args:
-        table (DynamoDB.Table): The DynamoDB table object
-        pk_name (str): The name of the primary key
-        pk_value (str/int): The value of the primary key
-        sk_name (str, optional): The name of the sort key. Defaults to None.
-        sk_value (str/int, optional): The value of the sort key. Defaults to None.
-    
-    Returns:
-        dict: The item retrieved from the table as a dictionary object if successful, otherwise a dictionary object containing an error message and status code
-    """
-    key = {
-        pk_name: pk_value,
-    }
-    if sk_name is not None:
-        key[sk_name] = sk_value
-    
-    try:
-        itemObject = table.get_item(Key=key)
-        if "Item" in itemObject:
-            return {"success":True, "response":itemObject["Item"]}
-        else:
-            error_message = "{} with id: {} not found in {}".format(pk_name, str(pk_value), table.table_name)
-            return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-    except Exception as e:
-        print(e)
-        error_message = "Exception while getting {}: {} from {}".format(pk_name, str(pk_value), table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-
-
-def _putItem(table, item):
-    """
-    Inserts a new item into the provided table.
-
-    Args:
-        table (DynamoDB.Table): The DynamoDB table object
-        item (dict): The item to be inserted into the table
-    
-    Returns:
-        dict: A dictionary object of the item inserted into the table if successful, otherwise a dictionary object containing an error message and status code
-    """
-    try:
-        response = table.put_item(Item=item)
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            return {"success": True, "response": item}
-        else:
-            error_message = "Unable to write item to {}".format(table.table_name)
-            return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
-    except Exception as e:
-        print(e)
-        error_message = "An exception occured while writing item to {}".format(table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
 
 
 def getGuessResponse(guess, target):
