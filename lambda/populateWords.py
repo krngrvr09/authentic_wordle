@@ -5,7 +5,7 @@ import os
 # import requests
 import random
 from enum import Enum
-from wordle_utils import _http_response, ResponseStatus
+from wordle_utils import _http_response, ResponseStatus, ApplicationStatus
 
 
 def handler(event, context):
@@ -41,6 +41,6 @@ def handler(event, context):
                 })
     except Exception as e:
         print(e)
-        return _http_response(ResponseStatus.INTERNAL_ERROR, "Failed to populate words table")
+        return _http_response(ResponseStatus.INTERNAL_ERROR, "Failed to populate words table", ApplicationStatus.DATABASE_ERROR)
     # return a success message
-    return _http_response(ResponseStatus.CREATED, "Successfully populated words table")
+    return _http_response(ResponseStatus.CREATED, "Successfully populated words table", ApplicationStatus.OK)

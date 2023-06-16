@@ -2,7 +2,7 @@ import json
 import boto3
 import uuid
 import os
-from wordle_utils import _http_response, _putItem, ResponseStatus
+from wordle_utils import _http_response, _putItem, ResponseStatus, ApplicationStatus
 
 
 def handler(event, context):
@@ -18,6 +18,6 @@ def handler(event, context):
 
         reply = _putItem(userTable, new_item)
         if not reply["success"]:
-            return _http_response( reply["status"], reply["response"])
+            return _http_response( reply["status"], reply["response"], reply["application_status"])
         
-        return _http_response(ResponseStatus.CREATED, reply["response"])
+        return _http_response(ResponseStatus.CREATED, reply["response"], reply["application_status"])

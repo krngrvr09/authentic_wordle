@@ -11,8 +11,26 @@ class ResponseStatus(enum.Enum):
     NOT_FOUND = 404
     INTERNAL_ERROR = 500
 
+# Application Status Codes
+class ApplicationStatus(enum.Enum):
+    OK = 1
+    CREATED = 2
+    MISSING_PARAMETERS = 3
+    NOT_AUTHORISED = 4
+    INPUT_ERROR = 5
+    GAME_OVER = 6
+    DATABASE_ERROR = 7
 
-def _http_response(response_status, response_message, headers=None):
+# Game Status and Guess Colours
+GREY = "GREY"
+GREEN = "GREEN"
+YELLOW = "YELLOW"
+IN_PROGRESS = "IN_PROGRESS"
+WON = "WON"
+LOST = "LOST"
+
+
+def _http_response(response_status, response_message, application_status, headers=None):
     """
     Builds a HTTP response object using the response status and message provided.
 
@@ -26,7 +44,7 @@ def _http_response(response_status, response_message, headers=None):
     """
     response_object = {
                 'statusCode': response_status.value,
-                'body': json.dumps({"message":response_message, "status": response_status.name})
+                'body': json.dumps({"message":response_message, "status": application_status.name})
             }
     if headers is not None:
         response_object["headers"] = headers
@@ -56,14 +74,14 @@ def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
     try:
         itemObject = table.get_item(Key=key)
         if "Item" in itemObject:
-            return {"success":True, "response":itemObject["Item"]}
+            return {"success":True, "response":itemObject["Item"], "application_status": ApplicationStatus.OK}
         else:
             error_message = "{} with id: {} not found in {}".format(pk_name, str(pk_value), table.table_name)
-            return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+            return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.INPUT_ERROR}
     except Exception as e:
         print(e)
         error_message = "Exception while getting {}: {} from {}".format(pk_name, str(pk_value), table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.DATABASE_ERROR}
 
 
 def _getRandomItem(table, partition_key, partition_key_value):
@@ -91,15 +109,15 @@ def _getRandomItem(table, partition_key, partition_key_value):
         items = response['Items']
         n = len(items)
         if n == 0:
-            return {"success":False, "response": "No items found in {}".format(table.table_name), "status": ResponseStatus.INTERNAL_ERROR}
+            return {"success":False, "response": "No items found in {}".format(table.table_name), "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.INPUT_ERROR}
         else:
             random_int = uuid.uuid4().int
             idx = random_int % n
-            return {"success":True, "response": items[idx]}
+            return {"success":True, "response": items[idx], "application_status": ApplicationStatus.OK}
     except Exception as e:
         print(e)
         error_message = "Exception while getting {}: {} from {}".format(partition_key, str(partition_key_value), table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.DATABASE_ERROR}
 
 
 def _putItem(table, item):
@@ -116,14 +134,14 @@ def _putItem(table, item):
     try:
         response = table.put_item(Item=item)
         if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            return {"success": True, "response": item}
+            return {"success": True, "response": item, "status": ResponseStatus.OK, "application_status": ApplicationStatus.OK}
         else:
             error_message = "Unable to write item to {}".format(table.table_name)
-            return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+            return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.INPUT_ERROR}
     except Exception as e:
         print(e)
         error_message = "An exception occured while writing item to {}".format(table.table_name)
-        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
+        return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.DATABASE_ERROR}
 
 
 def _deleteItem(table, item_id_name, item_id):
@@ -145,10 +163,10 @@ def _deleteItem(table, item_id_name, item_id):
                 }
             )
         if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            return {"success": True, "response": "Item deleted successfully."}
+            return {"success": True, "response": "Item deleted successfully.", "application_status": ApplicationStatus.OK}
         else:
-            return {"success": False, "response": "Error deleting item: {} in {}".format(str(item_id), table.table_name), "status": ResponseStatus.INTERNAL_ERROR}
+            return {"success": False, "response": "Error deleting item: {} in {}".format(str(item_id), table.table_name), "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.INPUT_ERROR}
             
     except Exception as e:
         print(e)
-        return {"success": False, "response": "Exception deleting item with id: {} from {}".format(str(item_id), table.table_name), "status": ResponseStatus.INTERNAL_ERROR}
+        return {"success": False, "response": "Exception deleting item with id: {} from {}".format(str(item_id), table.table_name), "status": ResponseStatus.INTERNAL_ERROR, "application_status": ApplicationStatus.DATABASE_ERROR}

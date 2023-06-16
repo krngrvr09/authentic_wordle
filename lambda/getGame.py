@@ -2,18 +2,18 @@ import json
 import boto3
 import os
 from enum import Enum
-from wordle_utils import _http_response, _getItem, ResponseStatus
+from wordle_utils import _http_response, _getItem, ResponseStatus, ApplicationStatus
 
 
 def handler(event, context):
 
     # Validate request and request parameters
     if "pathParameters" not in event:
-        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters")
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters", ApplicationStatus.MISSING_PARAMETERS)
     
     pathParams = event["pathParameters"]
     if "user_id" not in pathParams or "game_id" not in pathParams:
-        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing required URL parameters")
+        return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing required URL parameters", ApplicationStatus.MISSING_PARAMETERS)
     
     dynamoClient = boto3.resource("dynamodb")
     userTable = dynamoClient.Table(os.environ["USER_TABLE"])
@@ -25,18 +25,18 @@ def handler(event, context):
     # Check if user exists
     reply = _getItem(userTable, "user_id", user_id)
     if not reply["success"]:
-        return _http_response(reply["status"],reply["response"])
+        return _http_response(reply["status"],reply["response"], reply["application_status"])
     
     # Check if user is authorised to access this game
     user = reply["response"]
     user_game_id = user["game_id"]
     if(user_game_id!=game_id):
-        return _http_response(ResponseStatus.NOT_AUTHORISED, "This user is not allowed to access this game")
+        return _http_response(ResponseStatus.NOT_AUTHORISED, "This user is not allowed to access this game", ApplicationStatus.NOT_AUTHORISED)
 
     # Get game
     reply = _getItem(gameTable, "game_id", game_id)
     if not reply["success"]:
-        return _http_response(reply["status"],reply["response"])
+        return _http_response(reply["status"],reply["response"], reply["application_status"])
     
     # Return game
-    return _http_response(ResponseStatus.OK, reply["response"])
+    return _http_response(ResponseStatus.OK, reply["response"], reply["application_status"])

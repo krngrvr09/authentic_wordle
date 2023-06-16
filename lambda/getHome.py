@@ -3,18 +3,18 @@ import boto3
 import os
 from enum import Enum
 from urllib.parse import urljoin
-from wordle_utils import _http_response, _getItem, ResponseStatus
+from wordle_utils import _http_response, _getItem, ResponseStatus, ApplicationStatus
 
 
 def handler(event, context):
 
     # If no query parameters are provided, return the home page
     if "queryStringParameters" not in event:
-        return _http_response(ResponseStatus.OK, "Successfully retrieved home page")
+        return _http_response(ResponseStatus.OK, "Successfully retrieved home page", ApplicationStatus.OK)
     
     queryParams = event["queryStringParameters"]
     if queryParams is None or "user_id" not in queryParams or "game_id" not in queryParams:
-        return _http_response(ResponseStatus.OK, "Successfully retrieved home page")
+        return _http_response(ResponseStatus.OK, "Successfully retrieved home page", ApplicationStatus.OK)
     
     dynamoClient = boto3.resource("dynamodb")
     userTable = dynamoClient.Table(os.environ["USER_TABLE"])
@@ -26,18 +26,18 @@ def handler(event, context):
     # Check if user exists
     reply = _getItem(userTable, "user_id", user_id)
     if not reply["success"]:
-        return _http_response(reply["status"],reply["response"])
+        return _http_response(reply["status"],reply["response"], reply["application_status"])
     
     # Check if user is allowed to access this game
     user = reply["response"]
     user_game_id = user["game_id"]
     if(user_game_id!=game_id):
-        return _http_response(ResponseStatus.NOT_AUTHORISED, "This user is not allowed to access this game")
+        return _http_response(ResponseStatus.NOT_AUTHORISED, "This user is not allowed to access this game", ApplicationStatus.NOT_AUTHORISED)
 
     # Check if game exists
     reply = _getItem(gameTable, "game_id", game_id)
     if not reply["success"]:
-        return _http_response(reply["status"],reply["response"])
+        return _http_response(reply["status"],reply["response"], reply["application_status"])
     
     # Redirect to game page
     request_path = event['path']
@@ -47,4 +47,4 @@ def handler(event, context):
     headers = {
         'Location': redirect_url,
     }
-    return _http_response(ResponseStatus.TEMPORARY_REDIRECT, "Redirecting to the game.", headers)
+    return _http_response(ResponseStatus.TEMPORARY_REDIRECT, "Redirecting to the game.", ApplicationStatus.OK, headers)
