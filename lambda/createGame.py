@@ -15,7 +15,7 @@ def isInt(s):
 
 def handler(event, context):
     # Validate request and request parameters
-    if "queryStringParameters" not in event or "pathParameters" not in event:
+    if "queryStringParameters" not in event or event["pathParameters"] is None or "pathParameters" not in event or event["queryStringParameters"] is None:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters", ApplicationStatus.MISSING_PARAMETERS)
     
     pathParams = event["pathParameters"]

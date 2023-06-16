@@ -9,11 +9,11 @@ from wordle_utils import _http_response, _getItem, ResponseStatus, ApplicationSt
 def handler(event, context):
 
     # If no query parameters are provided, return the home page
-    if "queryStringParameters" not in event:
+    if "queryStringParameters" not in event or event["queryStringParameters"] is None:
         return _http_response(ResponseStatus.OK, "Successfully retrieved home page", ApplicationStatus.OK)
     
     queryParams = event["queryStringParameters"]
-    if queryParams is None or "user_id" not in queryParams or "game_id" not in queryParams:
+    if "user_id" not in queryParams or "game_id" not in queryParams:
         return _http_response(ResponseStatus.OK, "Successfully retrieved home page", ApplicationStatus.OK)
     
     dynamoClient = boto3.resource("dynamodb")

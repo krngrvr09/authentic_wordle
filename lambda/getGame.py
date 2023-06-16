@@ -8,7 +8,7 @@ from wordle_utils import _http_response, _getItem, ResponseStatus, ApplicationSt
 def handler(event, context):
 
     # Validate request and request parameters
-    if "pathParameters" not in event:
+    if "pathParameters" not in event or event["pathParameters"] is None:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters", ApplicationStatus.MISSING_PARAMETERS)
     
     pathParams = event["pathParameters"]

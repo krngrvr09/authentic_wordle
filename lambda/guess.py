@@ -87,7 +87,7 @@ def getGuessResponse(guess, target):
 def handler(event, context):
     
     # Validate the request and request parameters
-    if "pathParameters" not in event or "queryStringParameters" not in event:
+    if "pathParameters" not in event or event["pathParameters"] is None or "queryStringParameters" not in event or event["queryStringParameters"] is None:
         return _http_response(ResponseStatus.MALFORMED_REQUEST, "Missing URL parameters", ApplicationStatus.MISSING_PARAMETERS)
 
     pathParams = event["pathParameters"]
