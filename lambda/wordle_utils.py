@@ -62,7 +62,7 @@ def _getItem(table, pk_name, pk_value, sk_name=None, sk_value=None):
             return {"success":False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
     except Exception as e:
         print(e)
-        error_message = "Exception while getting {}: {} from {}}".format(pk_name, str(pk_value), table.table_name)
+        error_message = "Exception while getting {}: {} from {}".format(pk_name, str(pk_value), table.table_name)
         return {"success": False, "response": error_message, "status": ResponseStatus.INTERNAL_ERROR}
 
 
