@@ -59,15 +59,27 @@ def getGuessResponse(guess, target):
         Returns:
             list: Response as a list of colours(str)
         """
-        res=[]
+
+        count = {}
+        for c in target:
+            if c in count:
+                count[c]+=1
+            else:
+                count[c]=1
+
+        res=[GREY for i in guess]
         idx=0
         for c in guess:
-            if c not in target:
-                res.append(GREY)
-            elif target[idx]==c:
-                res.append(GREEN)
-            else:
-                res.append(YELLOW)
+            if target[idx]==c:
+                res[idx]=GREEN
+                count[c]-=1
+            idx+=1
+
+        idx=0
+        for c in guess:
+            if res[idx]==GREY and c in count and count[c]>0:
+                res[idx]=YELLOW
+                count[c]-=1
             idx+=1
         return res
 
