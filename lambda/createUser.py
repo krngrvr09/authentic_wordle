@@ -13,7 +13,12 @@ def handler(event, context):
         user_id = str(uuid.uuid4())
         new_item = {
             "user_id": user_id,
-            "game_id": ""
+            "game_id": "",
+            "played": "0",
+            "won": "0",
+#            "lost": "0",
+            "current_streak": "0",
+            "longest_streak": "0",
         }
 
         reply = _putItem(userTable, new_item)

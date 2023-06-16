@@ -141,9 +141,63 @@ def handler(event, context):
     game["attempts_left"]=str(attempts_left)
     
     # Write the updated game to the database
-    reply = _putItem(gameTable, game)
-    if not reply["success"]:
-        return _http_response(reply["status"], reply["response"], reply["application_status"])
-    
-    # Return the updated game
-    return _http_response(ResponseStatus.CREATED, reply["response"], reply["application_status"])
+    if game["status"]==IN_PROGRESS:
+        reply = _putItem(gameTable, game)
+        if not reply["success"]:
+            return _http_response(reply["status"], reply["response"], reply["application_status"])
+            # Return the updated game
+        return _http_response(ResponseStatus.CREATED, reply["response"], reply["application_status"])
+
+    else:
+        if game["status"]==WON:
+            played = int(user["played"])+1
+            won = int(user["won"])+1
+            longest_streak = int(user["longest_streak"])
+            current_streak = int(user["current_streak"])+1
+
+            user["played"] = str(played)
+            user["won"] = str(won)
+            user["current_streak"] = str(current_streak)
+            if current_streak>longest_streak:
+                user["longest_streak"] = str(current_streak)
+
+        elif(game["status"]==LOST):
+            played = int(user["played"])+1
+            current_streak = 0
+
+            user["played"] = str(played)
+            user["current_streak"] = str(current_streak)
+
+        
+        operations = [
+            {
+                'Update': {
+                    'TableName': gameTable.table_name,
+                    'Key': {
+                        'game_id': {'S': game["game_id"]}
+                    },
+                    'UpdateExpression': 'SET #hard_mode = :hard_mode, #attempts_left = :attempts_left, #word_length = :word_length, #word = :word, #status = :status, #guesses = :guesses, #responses = :responses', 
+                    'ExpressionAttributeNames': {'#status': 'status', '#hard_mode': 'hard_mode', '#attempts_left': 'attempts_left', '#word_length': 'word_length', '#word': 'word', '#guesses': 'guesses', '#responses': 'responses'},
+                    'ExpressionAttributeValues': {':hard_mode': {'S': game["hard_mode"]}, ':attempts_left': {'S':game["attempts_left"]}, ':word_length': {'S':game["word_length"]}, ':word': {'S':game["word"]}, ':status': {'S':game["status"]}, ':guesses': {'L':[{'S': i} for i in game["guesses"]]}, ':responses': {'L':[{'S':i} for i in game["responses"]]} },
+                }
+            },
+            {
+                'Update': {
+                    'TableName': userTable.table_name,
+                    'Key': {
+                        'user_id': {'S': user["user_id"]}
+                    },
+                    'UpdateExpression': 'SET #played = :played, #won = :won,  #current_streak = :current_streak, #longest_streak = :longest_streak',
+                    'ExpressionAttributeNames': {'#played': 'played', '#won': 'won', '#current_streak': 'current_streak', '#longest_streak': 'longest_streak'},
+                    'ExpressionAttributeValues': {':played': {'S':user["played"]}, ':won': {'S':user["won"]}, ':current_streak': {'S':user["current_streak"]}, ':longest_streak': {'S':user["longest_streak"]} }
+                }
+            }
+        ]
+        low_level_client = boto3.client('dynamodb')
+        reply = low_level_client.transact_write_items(
+                    TransactItems=operations)
+        print(reply)
+        if reply['ResponseMetadata']['HTTPStatusCode'] != 200:
+            return _http_response(ResponseStatus.INTERNAL_SERVER_ERROR, "Couldnt write items to database", ApplicationStatus.DATABASE_ERROR)
+
+        return _http_response(ResponseStatus.CREATED, game, ApplicationStatus.OK)
